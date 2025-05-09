@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  reverse-proxy:
+    image: traefik:v2.5
+    container_name: traefik
+    ports:
+      - "80:80"
+      - "8080:8080"  # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.entrypoints=web"
+    networks:
+      - traefik-net
+    restart: unless-stopped
+
+  service1:
+    build:
+      context: ./service1
+      dockerfile: Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.service1.entrypoints=web"
+      - "traefik.http.routers.service1.rule=PathPrefix(`/service1`)"
+      - "traefik.http.routers.service1.middlewares=strip-service1,retry"
+      - "traefik.http.middlewares.strip-service1.stripprefix.prefixes=/service1"
+      - "traefik.http.middlewares.retry.retry.attempts=5"
+      - "traefik.http.services.service1.loadbalancer.server.port=8000"
+      - "traefik.http.services.service1.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.service1.loadbalancer.healthcheck.interval=10s"
+    networks:
+      - traefik-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  service2:
+    build:
+      context: ./service2
+      dockerfile: Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.service2.entrypoints=web"
+      - "traefik.http.routers.service2.rule=PathPrefix(`/service2`)"
+      - "traefik.http.routers.service2.middlewares=strip-service2,retry"
+      - "traefik.http.middlewares.strip-service2.stripprefix.prefixes=/service2"
+      - "traefik.http.middlewares.retry.retry.attempts=5"
+      - "traefik.http.services.service2.loadbalancer.server.port=8000"
+      - "traefik.http.services.service2.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.service2.loadbalancer.healthcheck.interval=10s"
+    networks:
+      - traefik-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  traefik-net:
+    driver: bridge
+    name: traefik-net
+    attachable: true

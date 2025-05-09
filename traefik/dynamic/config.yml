@@ -1,0 +1,22 @@
+http:
+  routers:
+    to-service1:
+      rule: "PathPrefix(`/service1`)"
+      service: "service1"
+      entryPoints:
+        - "web"
+    to-service2:
+      rule: "PathPrefix(`/service2`)"
+      service: "service2"
+      entryPoints:
+        - "web"
+  
+  services:
+    service1:
+      loadBalancer:
+        servers:
+          - url: "http://service1:8000"
+    service2:
+      loadBalancer:
+        servers:
+          - url: "http://service2:8000"
